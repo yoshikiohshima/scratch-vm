@@ -1,5 +1,6 @@
 const ArgumentType = require('../../extension-support/argument-type');
 const BlockType = require('../../extension-support/block-type');
+const Cast = require('../../util/cast');
 const formatMessage = require('format-message');
 const Croquet = require('@croquet/croquet');
 
@@ -13,7 +14,10 @@ const iconURI = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJYAAACWCAYAAAA8A
 class ScratchModel extends Croquet.Model {
     init () {
         this.values = {};
+        this.resetCode();
         this.subscribe(this.id, 'setValue', 'setValue');
+        this.subscribe(this.id, 'resetCode', 'resetCode');
+        this.subscribe(this.id, 'addCode', 'addCode');
     }
 
     setValue ({name, value}) {
@@ -29,6 +33,25 @@ class ScratchModel extends Croquet.Model {
         return this.values[name] || 0;
     }
 
+    resetCode () {
+        this.$functions = {};
+    }
+
+    addCode (code) {
+        if (!code) return;
+        const str = `let x = ${code}; return x`;
+        const func = new Function('Cast', str)(Cast);
+        const name = func.name;
+        this.$functions[name] = func;
+        this.invoke(name);
+    }
+
+    invoke (name) {
+        const func = this.$functions[name];
+        if (!func) return;
+        func.call(this);
+    }
+    
     log () {
         console.log(3);
     }
@@ -132,6 +155,17 @@ class Scratch3CroquetBlocks {
                     }
                 },
                 {
+                    opcode: 'executeModelCode',
+                    text: formatMessage({
+                        id: 'Croquet.executeModelCode',
+                        default: 'execute model code',
+                        description: 'search for all modelCode hat blocks and create model side expanders'
+                    }),
+                    blockType: BlockType.COMMAND,
+                    arguments: {
+                    }
+                },
+                {
                     opcode: 'getValue',
                     text: formatMessage({
                         id: 'Croquet.getValue',
@@ -159,6 +193,17 @@ class Scratch3CroquetBlocks {
                             type: ArgumentType.STRING,
                             defaultValue: 'x'
                         }
+                    }
+                },
+                {
+                    opcode: 'modelCode',
+                    text: formatMessage({
+                        id: 'Croquet.modelCode',
+                        default: 'model code',
+                        description: 'Code that is executed in the model'
+                    }),
+                    blockType: BlockType.HAT,
+                    arguments: {
                     }
                 }
             ],
@@ -250,6 +295,101 @@ class Scratch3CroquetBlocks {
             return true;
         }
         return false;
+    }
+
+    modelCode () {
+        // no op, but the block 'execute model code' will look for all blocks with
+        // this hat block and send it to the model.
+        return false;
+    }
+
+    executeModelCode () {
+        if (this.view) {
+            this.view.publish(this.view.model.id, 'resetCode');
+        }
+        this.runtime.targets.forEach(t => {
+            const keys = Object.keys(t.blocks._scripts);
+            keys.forEach(k => {
+                const id = t.blocks._scripts[k];
+                const block = t.blocks._blocks[id];
+                if (block.opcode !== 'croquet_modelCode') return;
+                const result = this.convert(block, t.blocks._blocks).join('');
+                if (this.view) {
+                    this.view.publish(this.view.model.id, 'addCode', result);
+                } else {
+                    console.log('result', result);
+                }
+            });
+        });
+    }
+
+    toAlnum (id) {
+        const result = [];
+        for (let i = 0; i < id.length; i++) {
+            let c = id[i];
+            if (!/[a-zA-Z_0-9]/.test(c)) {
+                c = c.charCodeAt(0).toString(16);
+            }
+            result.push(c);
+        }
+        return result.join('');
+    }
+
+    convert (block, blocks) {
+        if (!block) {
+            return [];
+        }
+        if (block.opcode === 'croquet_modelCode') {
+            const id = block.next;
+            const next = blocks[id];
+            return this.convert(next, blocks);
+        }
+        if (block.opcode === 'control_forever') {
+            const subStack = block.inputs.SUBSTACK;
+            let inner;
+            if (subStack) {
+                const id = subStack.block;
+                const next = blocks[id];
+                inner = this.convert(next, blocks);
+            } else {
+                inner = [];
+            }
+            const f = `f_${this.toAlnum(block.id)}`;
+            return ['function ', f, '() {', ...inner, 'this.future(1000/20).invoke(', '"', f, '"', ');}'];
+        }
+        if (block.opcode === 'croquet_setValue') {
+            const name = block.inputs.NAME;
+            const value = block.inputs.VALUE;
+            const nId = name.block;
+            const vId = value.block;
+            const nameStr = this.convert(blocks[nId], blocks);
+            const valueStr = this.convert(blocks[vId], blocks);
+            return ['this.setValue({name: ', ...nameStr, ', value: ', ...valueStr, '});'];
+        }
+        if (block.opcode === 'croquet_getValue') {
+            const name = block.inputs.NAME;
+            const nId = name.block;
+            const nameStr = this.convert(blocks[nId], blocks);
+            return ['this.getValue(', ...nameStr, ')'];
+        }
+        if (block.opcode === 'operator_add') {
+            const num1 = block.inputs.NUM1;
+            const num2 = block.inputs.NUM2;
+            const id1 = num1.block;
+            const id2 = num2.block;
+            const num1Str = this.convert(blocks[id1], blocks);
+            const num2Str = this.convert(blocks[id2], blocks);
+            return ['(Cast.toNumber(', ...num1Str, ') + Cast.toNumber(', ...num2Str, '))'];
+        }
+        if (block.opcode === 'text') {
+            const fields = block.fields.TEXT;
+            return ["'", fields.value, "'"];
+        }
+        if (block.opcode === 'math_number') {
+            const fields = block.fields.NUM;
+            return ["'", fields.value, "'"];
+        }
+        return [];
     }
 }
 
