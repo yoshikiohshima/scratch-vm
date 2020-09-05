@@ -1,0 +1,335 @@
+<html>
+  <body>
+    <script src="cps.js"></script>
+    <script>
+const testBlocks = {
+    a: {
+        opcode: 'croquet_modelCode',
+        id: 'a',
+        next: 'b'
+    },
+    b: {
+        opcode: 'control_repeat',
+        id: 'b',
+        inputs: {
+            TIMES: {
+                block: 'c'
+            },
+            SUBSTACK: {
+                block: 'd'
+            }
+        },
+        next: 'j'
+    },
+    c: {
+        opcode: 'math_whole_number',
+        id: 'c',
+        fields: {
+            NUM: {value: '10'}
+        }
+    },
+    d: {
+        opcode: 'croquet_setValue',
+        id: 'd',
+        inputs: {
+            NAME: {
+                block: 'e'
+            },
+            VALUE: {
+                block: 'f'
+            }
+        },
+        next: 'g'
+    },
+    e: {
+        opcode: 'text',
+        id: 'e',
+        fields: {
+            TEXT: {value: 'x'}
+        }
+    },
+    f: {
+        opcode: 'math_number',
+        id: 'f',
+        fields: {
+            NUM: {value: '42'}
+        }
+    },
+    g: {
+        opcode: 'croquet_setValue',
+        id: 'g',
+        inputs: {
+            NAME: {
+                block: 'h'
+            },
+            VALUE: {
+                block: 'i'
+            }
+        }
+    },
+    h: {
+        opcode: 'text',
+        id: 'h',
+        fields: {
+            TEXT: {value: 'y'}
+        }
+    },
+    i: {
+        opcode: 'math_number',
+        id: 'i',
+        fields: {
+            NUM: {value: '45'}
+        }
+    },
+    j: {
+        opcode: 'control_forever',
+        id: 'j',
+        inputs: {
+            SUBSTACK: {
+                block: 'k'
+            }
+        }
+    },
+    k: {
+        opcode: 'croquet_setValue',
+        id: 'k',
+        inputs: {
+            NAME: {
+                block: 'l'
+            },
+            VALUE: {
+                block: 'm'
+            }
+        }
+    },
+    l: {
+        opcode: 'text',
+        id: 'l',
+        fields: {
+            TEXT: {value: 'z'}
+        }
+    },
+    m: {
+        opcode: 'math_number',
+        id: 'm',
+        fields: {
+            NUM: {value: '40'}
+        }
+    }
+};
+
+const testBlocks1 = {
+    a: {
+        opcode: 'croquet_modelCode',
+        id: 'a',
+        next: 'b'
+    },
+    b: {
+        opcode: 'control_repeat',
+        id: 'b',
+        inputs: {
+            TIMES: {
+                block: 'c'
+            },
+            SUBSTACK: {
+                block: 'd'
+            }
+        },
+        next: 'j'
+    },
+    c: {
+        opcode: 'math_number',
+        id: 'c',
+        fields: {
+            NUM: {value: '10'}
+        }
+    },
+    d: {
+        opcode: 'croquet_setValue',
+        id: 'd',
+        inputs: {
+            NAME: {
+                block: 'e'
+            },
+            VALUE: {
+                block: 'f'
+            }
+        },
+        next: 'g'
+    },
+    e: {
+        opcode: 'text',
+        id: 'e',
+        fields: {
+            TEXT: {value: 'x'}
+        }
+    },
+    f: {
+        opcode: 'math_number',
+        id: 'f',
+        fields: {
+            NUM: {value: '42'}
+        }
+    },
+    g: {
+        opcode: 'croquet_setValue',
+        id: 'g',
+        inputs: {
+            NAME: {
+                block: 'h'
+            },
+            VALUE: {
+                block: 'i'
+            }
+        }
+    },
+    h: {
+        opcode: 'text',
+        id: 'h',
+        fields: {
+            TEXT: {value: 'y'}
+        }
+    },
+    i: {
+        opcode: 'math_number',
+        id: 'i',
+        fields: {
+            NUM: {value: '45'}
+        }
+    },
+    j: {
+	opcode: 'control_if_else',
+	id: 'j',
+	inputs: {
+	    SUBSTACK: {
+		block: 'k'
+	    },
+	    SUBSTACK2: {
+		block: 'q'
+	    },
+	    CONDITION: {
+		block: 'u'
+	    }
+	}
+    },
+    k: {
+	opcode: 'croquet_setValue',
+	id: 'k',
+	inputs: {
+	    NAME: {
+		block: 'l'
+	    },
+	    VALUE: {
+		block: 'm'
+	    }
+	},
+	next: 'n'
+    },
+    l: {
+        opcode: 'text',
+        id: 'l',
+        fields: {
+            TEXT: {value: 'a'}
+        }
+    },
+    m: {
+        opcode: 'math_number',
+        id: 'm',
+        fields: {
+            NUM: {value: '1'}
+        }
+    },
+    n: {
+	opcode: 'croquet_setValue',
+	id: 'n',
+	inputs: {
+	    NAME: {
+		block: 'o'
+	    },
+	    VALUE: {
+		block: 'p'
+	    }
+	},
+    },
+    o: {
+        opcode: 'text',
+        id: 'o',
+        fields: {
+            TEXT: {value: 'b'}
+        }
+    },
+    p: {
+        opcode: 'math_number',
+        id: 'p',
+        fields: {
+            NUM: {value: '2'}
+        }
+    },
+    q: {
+        opcode: 'control_forever',
+        id: 'q',
+        inputs: {
+            SUBSTACK: {
+                block: 'r'
+            }
+        }
+    },
+    r: {
+        opcode: 'croquet_setValue',
+        id: 'r',
+        inputs: {
+            NAME: {
+                block: 's'
+            },
+            VALUE: {
+                block: 't'
+            }
+        }
+    },
+    s: {
+        opcode: 'text',
+        id: 's',
+        fields: {
+            TEXT: {value: 'c'}
+        }
+    },
+    t: {
+        opcode: 'math_number',
+        id: 't',
+        fields: {
+            NUM: {value: '3'}
+        }
+    },
+    u: {
+        opcode: 'operator_equals',
+        id: 'u',
+        inputs: {
+            NUM1: {
+		block: 'v'
+	    },
+            NUM2: {
+		block: 'w'
+	    },
+        }
+    },
+    v: {
+        opcode: 'math_number',
+        id: 'v',
+        fields: {
+            NUM: {value: '3'}
+        }
+    },
+    w: {
+        opcode: 'math_number',
+        id: 'w',
+        fields: {
+            NUM: {value: '2'}
+        }
+    },
+};
+
+      const result = convertBlock(testBlocks['a'], testBlocks1);
+      console.log(result);
+    </script>
+  </body>
+</html>
