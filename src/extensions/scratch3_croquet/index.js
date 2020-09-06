@@ -4,6 +4,8 @@ const Cast = require('../../util/cast');
 const formatMessage = require('format-message');
 const Croquet = require('@croquet/croquet');
 
+const convertBlock = require('./cps');
+
 /**
  * Icon svg to be displayed at the left edge of each extension block, encoded as a data URI.
  * @type {string}
@@ -13,7 +15,6 @@ const iconURI = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJYAAACWCAYAAAA8A
 
 class ScratchModel extends Croquet.Model {
     init () {
-        this.values = {};
         this.resetCode();
         this.subscribe(this.id, 'setValue', 'setValue');
         this.subscribe(this.id, 'resetCode', 'resetCode');
@@ -30,30 +31,69 @@ class ScratchModel extends Croquet.Model {
     }
 
     getValue (name) {
-        return this.values[name] || 0;
+        return this.values[name];
     }
 
     resetCode () {
+        this.values = {};
         this.$functions = {};
+        this.$vars = {};
     }
 
-    addCode (code) {
-        if (!code) return;
-        const str = `let x = ${code}; return x`;
-        const func = new Function('Cast', str)(Cast);
-        const name = func.name;
-        this.$functions[name] = func;
-        this.invoke(name);
+    addCode (info) {
+        const {functions, entryPoint} = info;
+        const keys = Object.keys(functions);
+        keys.forEach(k => {
+            const f = functions[k];
+            const func = new Function('Cast', f);
+            this.$functions[k] = func;
+        });
+        this.invoke(entryPoint);
     }
 
     invoke (name) {
         const func = this.$functions[name];
         if (!func) return;
-        func.call(this);
+        func.call(this, Cast);
+    }
+
+    futureInvoke (name) {
+        const func = this.$functions[name];
+        if (!func) return;
+        this.future(1).invoke(name);
     }
     
     log () {
-        console.log(3);
+        console.log(17);
+    }
+
+    equalsOp (a, b) {
+        return Cast.compare(a, b) === 0;
+    }
+
+    ltOp (a, b) {
+        return Cast.compare(a, b) < 0;
+    }
+
+    gtOp (a, b) {
+        return Cast.compare(a, b) > 0;
+    }
+    
+    joinOp (a, b) {
+        return [a, b].join('');
+    }
+
+    randomOp (a, b) {
+        const nFrom = Cast.toNumber(a);
+        const nTo = Cast.toNumber(b);
+        const low = nFrom <= nTo ? nFrom : nTo;
+        const high = nFrom <= nTo ? nTo : nFrom;
+        if (low === high) return low;
+        // If both arguments are ints, truncate the result to an int.
+        if (Cast.isInt(a) && Cast.isInt(b)) {
+            return low + Math.floor(Math.random() * ((high + 1) - low));
+        }
+        return (Math.random() * (high - low)) + low;
     }
 }
 
@@ -73,7 +113,7 @@ class ScratchView extends Croquet.View {
     }
 
     getValue (name) {
-        return this.model.getValue(name);
+        return this.model.getValue(name) || 0;
     }
 
     newValue ({name, value}) {
@@ -304,92 +344,24 @@ class Scratch3CroquetBlocks {
     }
 
     executeModelCode () {
-        if (this.view) {
-            this.view.publish(this.view.model.id, 'resetCode');
+        const that = this;
+        if (that.view) {
+            that.view.publish(that.view.model.id, 'resetCode');
         }
-        this.runtime.targets.forEach(t => {
+        that.runtime.targets.forEach(t => {
             const keys = Object.keys(t.blocks._scripts);
             keys.forEach(k => {
                 const id = t.blocks._scripts[k];
                 const block = t.blocks._blocks[id];
                 if (block.opcode !== 'croquet_modelCode') return;
-                const result = this.convert(block, t.blocks._blocks).join('');
-                if (this.view) {
-                    this.view.publish(this.view.model.id, 'addCode', result);
+                const result = convertBlock(block, t.blocks._blocks);
+                if (that.view && result.entryPoint) {
+                    that.view.publish(that.view.model.id, 'addCode', result);
                 } else {
                     console.log('result', result);
                 }
             });
         });
-    }
-
-    toAlnum (id) {
-        const result = [];
-        for (let i = 0; i < id.length; i++) {
-            let c = id[i];
-            if (!/[a-zA-Z_0-9]/.test(c)) {
-                c = c.charCodeAt(0).toString(16);
-            }
-            result.push(c);
-        }
-        return result.join('');
-    }
-
-    convert (block, blocks) {
-        if (!block) {
-            return [];
-        }
-        if (block.opcode === 'croquet_modelCode') {
-            const id = block.next;
-            const next = blocks[id];
-            return this.convert(next, blocks);
-        }
-        if (block.opcode === 'control_forever') {
-            const subStack = block.inputs.SUBSTACK;
-            let inner;
-            if (subStack) {
-                const id = subStack.block;
-                const next = blocks[id];
-                inner = this.convert(next, blocks);
-            } else {
-                inner = [];
-            }
-            const f = `f_${this.toAlnum(block.id)}`;
-            return ['function ', f, '() {', ...inner, 'this.future(1000/20).invoke(', '"', f, '"', ');}'];
-        }
-        if (block.opcode === 'croquet_setValue') {
-            const name = block.inputs.NAME;
-            const value = block.inputs.VALUE;
-            const nId = name.block;
-            const vId = value.block;
-            const nameStr = this.convert(blocks[nId], blocks);
-            const valueStr = this.convert(blocks[vId], blocks);
-            return ['this.setValue({name: ', ...nameStr, ', value: ', ...valueStr, '});'];
-        }
-        if (block.opcode === 'croquet_getValue') {
-            const name = block.inputs.NAME;
-            const nId = name.block;
-            const nameStr = this.convert(blocks[nId], blocks);
-            return ['this.getValue(', ...nameStr, ')'];
-        }
-        if (block.opcode === 'operator_add') {
-            const num1 = block.inputs.NUM1;
-            const num2 = block.inputs.NUM2;
-            const id1 = num1.block;
-            const id2 = num2.block;
-            const num1Str = this.convert(blocks[id1], blocks);
-            const num2Str = this.convert(blocks[id2], blocks);
-            return ['(Cast.toNumber(', ...num1Str, ') + Cast.toNumber(', ...num2Str, '))'];
-        }
-        if (block.opcode === 'text') {
-            const fields = block.fields.TEXT;
-            return ["'", fields.value, "'"];
-        }
-        if (block.opcode === 'math_number') {
-            const fields = block.fields.NUM;
-            return ["'", fields.value, "'"];
-        }
-        return [];
     }
 }
 

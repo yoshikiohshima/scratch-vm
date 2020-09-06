@@ -10,7 +10,7 @@ function toAlnum (id) {
     return result.join('');
 }
 
-function convert (block, blocks, functions, whatIsNext) {
+function convert (block, blocks, functions, whatIsNext, useFuture) {
     const isCont = e => typeof e === 'string';
     const asCode = (e, isFuture) => {
         const method = isFuture ? 'futureInvoke' : 'invoke';
@@ -22,12 +22,16 @@ function convert (block, blocks, functions, whatIsNext) {
         }
         return e;
     };
-    if (!block) return [];
+    if (!block) return asCode(whatIsNext, useFuture);
     const op = block.opcode;
     if (op === 'croquet_modelCode') {
         const id = block.next;
-        if (!id) return {code: [], isCont: false};
-        return convert(blocks[id], blocks, functions, null);
+        if (!id) return null;
+        const result = convert(blocks[id], blocks, functions, null, false);
+        if (isCont(result)) return result;
+        const fName = `f_${toAlnum(block.id)}`;
+        functions[fName] = result.join('');
+        return fName;
     }
     if (op === 'control_repeat') {
         const subStack = block.inputs.SUBSTACK;
@@ -40,33 +44,28 @@ function convert (block, blocks, functions, whatIsNext) {
         const fNameBody = `${fName}_body`;
 
         const times = block.inputs.TIMES;
-        const timesStr = times ? convert(blocks[times.block], blocks, functions) : ['0'];
+        const timesStr = times ? convert(times ? blocks[times.block] : null, blocks, functions) : ['0'];
 
-        if (nextId) {
-            whatIsNext = convert(blocks[nextId], blocks, functions, whatIsNext);
-        }
+        const nextCode = convert(blocks[nextId], blocks, functions, whatIsNext, false);
 
-        let subCode;
-        if (subStack) {
-            subCode = convert(blocks[subStack.block], blocks, functions);
-        }
+        const subCode = convert(subStack ? blocks[subStack.block] : null, blocks, functions, fNameTest, true);
 
-        functions[`'${fNameInit}'`] = [
-            `this.vars['${fName}'] = 0; this.vars.['${fNameLimit}'] = Cast.toNumber(`, ...timesStr, `);`,
-            `this.invoke('${fNameTest}');`
+        functions[fNameInit] = [
+            `this.$vars['${fName}'] = 0; this.$vars['${fNameLimit}'] = Cast.toNumber(`, ...timesStr, `);`,
+            ...asCode(fNameTest, false)
         ].join('');
 
-        functions[`${fNameTest}`] = [
-            `this.vars['${fName}'] += 1;`,
-            `if (this.vars['${fName}'] > this.vars['${fNameLimit}']) {`,
-            ...asCode(whatIsNext, false), ';',
+        functions[fNameTest] = [
+            `this.$vars['${fName}'] += 1;`,
+            `if (this.$vars['${fName}'] > this.$vars['${fNameLimit}']) {`,
+            ...asCode(nextCode, false), ';',
             `} else {`,
-            ...asCode(fNameBody), ';',
+            ...asCode(fNameBody, false), ';',
             `}`
         ].join('');
 
-        functions[`${fNameBody}`] = [
-            ...asCode(subCode), ';', ...asCode(fNameTest, true), ';'
+        functions[fNameBody] = [
+            ...asCode(subCode), ';'
         ].join('');
         return fNameInit;
     }
@@ -75,44 +74,35 @@ function convert (block, blocks, functions, whatIsNext) {
         const fName = `f_${toAlnum(block.id)}`;
         const fNameBody = `${fName}_body`;
         
-        let subCode;
-        if (subStack) {
-            subCode = convert(blocks[subStack.block], blocks, functions, null);
-        }
+        const subCode = convert(subStack ? blocks[subStack.block] : null, blocks, functions, fNameBody, true);
 
-        functions[`${fNameBody}`] = [
-            ...asCode(subCode), ';', ...asCode(fNameBody, true), ';'
+        functions[fNameBody] = [
+            ...asCode(subCode), ';'
         ].join('');
         return fNameBody;
     }
         
     if (op === 'control_if' || op === 'control_if_else') {
-
         const fName = `f_${toAlnum(block.id)}`;
         const fNameTest = `${fName}_test`;
+        const fNameNext = `${fName}_next`;
 
         const subStack = block.inputs.SUBSTACK;
         const subStack2 = block.inputs.SUBSTACK2;
         const condition = block.inputs.CONDITION;
         const nextId = block.next;
 
-        if (nextId) {
-            whatIsNext = convert(blocks[nextId], blocks, functions, whatIsNext);
-        }
+        const nextCode = convert(blocks[nextId], blocks, functions, whatIsNext, useFuture);
 
-        let subCode;
-        if (subStack) {
-            subCode = convert(blocks[subStack.block], blocks, functions, whatIsNext);
-        }
+        functions[fNameNext] = asCode(nextCode).join('');
 
-        let subCode2;
-        if (subStack2) {
-            subCode2 = convert(blocks[subStack2.block], blocks, functions, whatIsNext);
-        }
+        const subCode = convert(subStack ? blocks[subStack.block] : null, blocks, functions, fNameNext, false);
 
-        const cCode = condition ? convert(blocks[condition.block], blocks, functions, null) : ['false'];
+        const subCode2 = convert(subStack2 ? blocks[subStack2.block] : null, blocks, functions, fNameNext, false);
 
-        functions[`'${fNameTest}'`] = [
+        const cCode = condition ? convert(blocks[condition.block], blocks, functions) : ['false'];
+
+        functions[fNameTest] = [
             'if (', cCode.join(''), ') {',
             ...asCode(subCode),
             '} else {',
@@ -130,16 +120,13 @@ function convert (block, blocks, functions, whatIsNext) {
         const nameStr = convert(blocks[nId], blocks, functions);
         const valueStr = convert(blocks[vId], blocks, functions);
 
-        if (next) {
-            whatIsNext = convert(blocks[next], blocks, functions, whatIsNext);
-        }
-        
+        const nnn = convert(blocks[next], blocks, functions, whatIsNext, useFuture);
+
         const thisOne = ['this.setValue({name: ', ...nameStr, ', value: ', ...valueStr, '})'];
 
-        if (whatIsNext) {
-            return [...thisOne, ';', ...asCode(whatIsNext)];
-        }
-        return thisOne;
+        // those two lines, should be identical but the bundler seems to have real trouble.
+        return [].concat(thisOne).concat([';']).concat(asCode(nnn));
+        // return [...thisOne, ';', ...asCode(nnn)]
     }
     if (op === 'croquet_getValue') { // REPORTER
         const name = block.inputs.NAME;
@@ -157,15 +144,41 @@ function convert (block, blocks, functions, whatIsNext) {
         const num2Str = convert(blocks[id2], blocks, functions, null);
         return ['(Cast.toNumber(', ...num1Str, `) ${js} Cast.toNumber(`, ...num2Str, '))'];
     }
-    if (['operator_equals'].indexOf(op) >= 0) {
-        const js = {operator_equals: '==='}[op];
+    if (['operator_equals', 'operator_lt', 'operator_gt'].indexOf(op) >= 0) {
+        const method = {
+            operator_equals: 'equalsOp',
+            operator_lt: 'ltOp',
+            operator_gt: 'gtOp'
+        }[op];
         const num1 = block.inputs.OPERAND1;
         const num2 = block.inputs.OPERAND2;
         const id1 = num1.block;
         const id2 = num2.block;
         const num1Str = convert(blocks[id1], blocks, functions, null);
         const num2Str = convert(blocks[id2], blocks, functions, null);
-        return ['((', ...num1Str, `) ${js} (`, ...num2Str, '))'];
+        return [`this.${method}(`, ...num1Str, ', ', ...num2Str, `)`];
+    }
+    if (['operator_join'].indexOf(op) >= 0) {
+        const method = {operator_join: 'joinOp'}[op];
+        
+        const str1 = block.inputs.STRING1;
+        const str2 = block.inputs.STRING2;
+        const id1 = str1.block;
+        const id2 = str2.block;
+        const str1Str = convert(blocks[id1], blocks, functions, null);
+        const str2Str = convert(blocks[id2], blocks, functions, null);
+        return [`this.${method}(`, ...str1Str, ', ', ...str2Str, `)`];
+    }
+    if (['operator_random'].indexOf(op) >= 0) {
+        const method = {operator_random: 'randomOp'}[op];
+        
+        const from = block.inputs.FROM;
+        const to = block.inputs.TO;
+        const id1 = from.block;
+        const id2 = to.block;
+        const fromStr = convert(blocks[id1], blocks, functions, null);
+        const toStr = convert(blocks[id2], blocks, functions, null);
+        return [`this.${method}((`, ...fromStr, '), (', ...toStr, `))`];
     }
     if (op === 'text') { // REPORTER
         const fields = block.fields.TEXT;
@@ -187,6 +200,6 @@ function convertBlock (block, blocks) {
     return {functions, entryPoint: cont};
 }
 
-if (module) {
+if (typeof module !== 'undefined') {
     module.exports = convertBlock;
 }
