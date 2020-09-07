@@ -738,9 +738,97 @@ const testBlocks3 = {
             NUM: {value: '1'}
         }
     }
+};
+
+const testBlocks4 = {
+    a: {
+        opcode: 'croquet_modelCode',
+        id: 'a',
+        next: 'b' // c
+    },
+    b: {
+        opcode: 'control_forever',
+        id: 'b',
+        inputs: {
+            SUBSTACK: {
+                block: 'c'
+            }
+        }
+    },
+    c: {
+	opcode: 'croquet_setValue',
+        id: 'c',
+        inputs: {
+            NAME: {
+                block: 'd'
+            },
+            VALUE: {
+                block: 'e'
+            }
+        },
+        next: 'f'
+    },
+    d: {
+        opcode: 'text',
+        id: 'd',
+        fields: {
+            TEXT: {value: 'i'}
+        }
+    },
+    e: {
+        opcode: 'math_number',
+        id: 'e',
+        fields: {
+            NUM: {value: '0'}
+        }
+    },
+    f: {
+	opcode: 'control_wait',
+	id: 'f',
+	inputs: {
+	    DURATION: {
+		block: 'g'
+	    }
+	},
+	next: 'h'
+    },
+    g: {
+	opcode: 'math_positive_number',
+	id: 'g',
+	fields: {
+	    NUM: {value: '1'}
+	}
+    },
+    h: {
+	opcode: 'croquet_setValue',
+        id: 'h',
+        inputs: {
+            NAME: {
+                block: 'i'
+            },
+            VALUE: {
+                block: 'j'
+            }
+        },
+    },
+    i: {
+        opcode: 'text',
+        id: 'i',
+        fields: {
+            TEXT: {value: 'x'}
+        }
+    },
+    j: {
+        opcode: 'math_number',
+        id: 'j',
+        fields: {
+            NUM: {value: '3'}
+        }
+    }
 }
 
-      const result = convertBlock(testBlocks['a'], testBlocks3);
+      const test = testBlocks4;
+      const result = convertBlock(test['a'], test);
       console.log(result);
     </script>
   </body>

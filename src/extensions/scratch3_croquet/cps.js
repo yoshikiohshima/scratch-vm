@@ -111,6 +111,23 @@ function convert (block, blocks, functions, whatIsNext, useFuture) {
         ].join('');
         return fNameTest;
     }
+    if (op === 'control_wait') {
+        const fName = `f_${toAlnum(block.id)}`;
+        const fNameNext = `${fName}_next`;
+        const duration = block.inputs.DURATION;
+        const nextId = block.next;
+        const nextCode = convert(blocks[nextId], blocks, functions, whatIsNext, useFuture);
+        functions[fNameNext] = asCode(nextCode).join('');
+
+        const dCode = duration ? convert(blocks[duration.block], blocks, functions) : ['0'];
+
+        functions[fName] = [
+            'this.future(Cast.toNumber(',
+            ...dCode,
+            `) * 1000).invoke('${fNameNext}')`
+        ].join('');
+        return fName;
+    }
     if (op === 'croquet_setValue') {
         const name = block.inputs.NAME;
         const value = block.inputs.VALUE;
@@ -193,7 +210,7 @@ function convert (block, blocks, functions, whatIsNext, useFuture) {
         const fields = block.fields.NUM;
         return ["'", fields.value, "'"];
     }
-    if (op === 'math_whole_number') {
+    if (op === 'math_whole_number' || op === 'math_positive_number') {
         const fields = block.fields.NUM;
         return ["'", fields.value, "'"];
     }
