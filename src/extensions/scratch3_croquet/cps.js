@@ -134,8 +134,13 @@ function convert (block, blocks, functions, whatIsNext, useFuture) {
         const nameStr = convert(blocks[nId], blocks, functions, null);
         return ['this.getValue(', ...nameStr, ')'];
     }
-    if (['operator_add'].indexOf(op) >= 0) {
-        const js = {operator_add: '+'}[op];
+    if (['operator_add', 'operator_subtract', 'operator_multiply', 'operator_divide'].indexOf(op) >= 0) {
+        const js = {
+            operator_add: '+',
+            operator_subtract: '-',
+            operator_multiply: '*',
+            operator_divide: '/',
+        }[op];
         const num1 = block.inputs.NUM1;
         const num2 = block.inputs.NUM2;
         const id1 = num1.block;
