@@ -53,7 +53,10 @@ class ScratchModel extends Croquet.Model {
 
     invoke (name) {
         const func = this.$functions[name];
-        if (!func) return;
+        if (!func) {
+            console.log(`function named ${name} not found`);
+            return;
+        }
         func.call(this, Cast);
     }
 
