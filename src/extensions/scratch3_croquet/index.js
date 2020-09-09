@@ -17,7 +17,6 @@ class ScratchCode extends Croquet.Model {
     init () {
         this.$functions = {};
         this.$vars = {};
-        console.log("ScratchCode", Date.now());
     }
 
     setModel (model) {
@@ -51,6 +50,22 @@ class ScratchCode extends Croquet.Model {
         console.log(17);
     }
 
+    addOp (a, b) {
+        return Cast.toNumber(a) + Cast.toNumber(b);
+    }
+
+    minusOp (a, b) {
+        return Cast.toNumber(a) - Cast.toNumber(b);
+    }
+
+    mulOp (a, b) {
+        return Cast.toNumber(a) * Cast.toNumber(b);
+    }
+
+    divOp (a, b) {
+        return Cast.toNumber(a) / Cast.toNumber(b);
+    }
+    
     equalsOp (a, b) {
         return Cast.compare(a, b) === 0;
     }
@@ -65,6 +80,79 @@ class ScratchCode extends Croquet.Model {
     
     joinOp (a, b) {
         return [a, b].join('');
+    }
+
+    letterOfOp (a, b) {
+        const index = Cast.toNumber(a) - 1;
+        const str = Cast.toString(b);
+        if (index < 0 || index >= str.length) {
+            return '';
+        }
+        return str.charAt(index);
+    }
+
+    containsOp (a, b) {
+        const aStr = Cast.toString(a);
+        const bStr = Cast.toString(b);
+
+        const format = function (string) {
+            return Cast.toString(string).toLowerCase();
+        };
+        return format(aStr).includes(format(bStr));
+    }
+
+    lengthOp (str) {
+        return Cast.toString(str).length;
+    }
+
+    modOp (a, b) {
+        const n = Cast.toNumber(a);
+        const modulus = Cast.toNumber(b);
+        let result = n % modulus;
+        // Scratch mod uses floored division instead of truncated division.
+        if (result / modulus < 0) result += modulus;
+        return result;
+    }
+
+    roundOp (a) {
+        return Math.round(Cast.toNumber(a));
+    }
+
+    mathOp (op, arg) {
+        const operator = Cast.toString(op).toLowerCase();
+        const n = Cast.toNumber(arg);
+
+        const tan = angle => {
+            angle = angle % 360;
+            switch (angle) {
+            case -270:
+            case 90:
+                return Infinity;
+            case -90:
+            case 270:
+                return -Infinity;
+            default:
+                return parseFloat(Math.tan((Math.PI * angle) / 180).toFixed(10));
+            }
+        };
+        
+        switch (operator) {
+        case 'abs': return Math.abs(n);
+        case 'floor': return Math.floor(n);
+        case 'ceiling': return Math.ceil(n);
+        case 'sqrt': return Math.sqrt(n);
+        case 'sin': return parseFloat(Math.sin((Math.PI * n) / 180).toFixed(10));
+        case 'cos': return parseFloat(Math.cos((Math.PI * n) / 180).toFixed(10));
+        case 'tan': return tan(n);
+        case 'asin': return (Math.asin(n) * 180) / Math.PI;
+        case 'acos': return (Math.acos(n) * 180) / Math.PI;
+        case 'atan': return (Math.atan(n) * 180) / Math.PI;
+        case 'ln': return Math.log(n);
+        case 'log': return Math.log(n) / Math.LN10;
+        case 'e ^': return Math.exp(n);
+        case '10 ^': return Math.pow(10, n);
+        }
+        return 0;
     }
 
     randomOp (a, b) {
@@ -121,8 +209,6 @@ class ScratchModel extends Croquet.Model {
         // call to this should be always preceeded by resetCode()
         const {functions, entryPoint} = info;
         this.code.addCode(functions);
-
-        console.log("invoke", Date.now());
         this.code.invoke(entryPoint);
     }
 }

@@ -825,7 +825,114 @@ const testBlocks4 = {
             NUM: {value: '3'}
         }
     }
-}
+};
+
+const testBlocks5 = {
+    a: {
+        opcode: 'croquet_modelCode',
+        id: 'a',
+        next: 'b'
+    },
+    b: {
+	opcode: 'croquet_setValue',
+        id: 'b',
+        inputs: {
+            NAME: {
+                block: 'c'
+            },
+            VALUE: {
+                block: 'd'
+            }
+        },
+	next: 'h'
+    },
+    c: {
+        opcode: 'text',
+        id: 'c',
+        fields: {
+            TEXT: {value: 'x'}
+        }
+    },
+    d: {
+        opcode: 'operator_letter_of',
+        id: 'd',
+        inputs: {
+            LETTER: {
+		block: 'e'
+	    },
+            STRING: {
+		block: 'f'
+	    },
+        }
+    },
+    e: {
+	opcode: 'text',
+	fields: {
+	    TEXT: {value: '2'}
+	}
+    },
+    f: {
+	opcode: 'croquet_getValue',
+	id: 'f',
+	inputs: {
+	    NAME: {
+		block: 'g'
+	    }
+	},
+    },
+    g: {
+	opcode: 'text',
+	id: 'g',
+	fields: {
+	    TEXT: {value: 'x'}
+	}
+    },
+    h: {
+	opcode: 'croquet_setValue',
+        id: 'h',
+        inputs: {
+            NAME: {
+                block: 'i'
+            },
+            VALUE: {
+                block: 'j'
+            }
+        },
+    },
+    i: {
+	opcode: 'text',
+	id: 'i',
+	fields: {
+	    TEXT: {value: 'y'},
+	}
+    },
+    j: {
+	opcode: 'operator_mathop',
+	id: 'j',
+	inputs: {
+	    OPERATOR: {
+		block: 'k',
+	    },
+	    NUM: {
+		block: 'l',
+	    }
+	}
+    },
+    k: {
+	opcode: 'text',
+	id: 'k',
+	fields: {
+	    TEXT: {value: 'tan'},
+	}
+    },
+    l: {
+	opcode: 'math_number',
+	id: 'l',
+	fields: {
+	    NUM: {value: '3'}
+	}
+    }
+};
 
       const test = testBlocks4;
       const result = convertBlock(test['a'], test);
